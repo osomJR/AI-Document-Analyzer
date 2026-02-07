@@ -2,3 +2,5 @@
 docs/product_contract.md
 #virtual environment
 .venv/
+#environment
+.env

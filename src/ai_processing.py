@@ -143,6 +143,4 @@ def process_with_ai(
     # response = ai_provider.generate(prompt)
     # return response
 
-    raise NotImplementedError(
-        "AI provider not connected. Prompt generation is contract-valid."
-    )
+    return prompt
