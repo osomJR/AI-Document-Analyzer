@@ -1,6 +1,6 @@
 #docs
 docs/product_contract.md
 #virtual environment
-.venv/
+venv/
 #environment
 .env
