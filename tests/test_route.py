@@ -3,14 +3,13 @@ from fastapi import FastAPI
 import pytest
 from backend.route import router
 from src.ai_client import AIClient
+from backend.api import app
 
 # Create a test app and register router
-app = FastAPI()
-app.include_router(router, prefix="/api")
 
 client = TestClient(app)
 
-# ---- Mock AIClient.generate ----
+# Mock AIClient.generate
 @pytest.fixture(autouse=True)
 def mock_ai_generate(monkeypatch):
     def fake_generate(self, prompt: str) -> str:
@@ -20,7 +19,7 @@ def mock_ai_generate(monkeypatch):
 
 def test_process_success():
     response = client.post(
-        "/api/process",
+        "/api/v1/process",
         json={
             "text": "This is a test document.",
             "feature": "summarize"
@@ -34,7 +33,7 @@ def test_process_success():
 
 def test_process_empty_text():
     response = client.post(
-        "/api/process",
+        "/api/v1/process",
         json={
             "text": "",
             "feature": "summarize"
@@ -46,7 +45,7 @@ def test_process_empty_text():
 
 def test_process_invalid_feature():
     response = client.post(
-        "/api/process",
+        "/api/v1/process",
         json={
             "text": "Hello",
             "feature": "invalid_feature"
@@ -57,7 +56,7 @@ def test_process_invalid_feature():
 
 def test_process_missing_field():
     response = client.post(
-        "/api/process",
+        "/api/v1/process",
         json={
             "text": "Hello"
         }

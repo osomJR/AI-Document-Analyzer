@@ -17,38 +17,37 @@ class AIProcessRequest(BaseModel):
 class AIProcessResponse(BaseModel):
     result: str
 
-# Routes
 
 @router.post("/process", response_model=AIProcessResponse)
 def process_document(request: AIProcessRequest):
-    """
-    Main AI processing endpoint.
 
-    Flow:
-    1. Validate request
-    2. Build contract-enforced prompt (ai_processor)
-    3. Execute AI call (ai_client)
-    4. Return raw, policy-compliant output
-    """
+    # REQUIRED for test_process_empty_text
+    if not request.text.strip():
+        raise HTTPException(
+            status_code=400,
+            detail="Empty content"
+        )
 
     try:
-        # Step 1: Build prompt via contract logic
         prompt = process_with_ai(
             text=request.text,
             feature=request.feature
         )
 
-        # Step 2: Execute AI call
         output = ai_client.generate(prompt)
 
         return AIProcessResponse(result=output)
 
     except HTTPException:
-        # Pass through known, intentional errors
         raise
 
+    except ValueError as e:
+        raise HTTPException(
+            status_code=400,
+            detail=str(e)
+        )
+
     except Exception as e:
-        # Catch-all safety net
         raise HTTPException(
             status_code=500,
             detail=f"Unexpected processing error: {str(e)}"

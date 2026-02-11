@@ -1,6 +1,17 @@
 from fastapi import HTTPException
 from typing import Literal
 
+"""
+API VERSION v1 CONTRACT
+This behavior is frozen.
+Breaking changes require:
+#new prompt rules
+#new constraints
+#new endpoint version (/v2)
+DO NOT MODIFY WITHOUT VERSION-v1
+Changes here affect AI behavior and output guarantees.
+"""
+
 # Contract-Locked Feature Set
 
 FeatureType = Literal[
@@ -12,7 +23,6 @@ FeatureType = Literal[
 ]
 
 # Global AI Constraints
-# (Non-Negotiable – v1)
 
 BASE_CONSTRAINTS = """
 You are a professional document processing AI.

@@ -10,8 +10,8 @@ app = FastAPI(
 # Register routes
 app.include_router(
     ai_router,
-    prefix="/api",
-    tags=["AI Processing"]
+    prefix="/api/v1",
+    tags=["v1"]
 )
 
 # Health check (important for deployment)

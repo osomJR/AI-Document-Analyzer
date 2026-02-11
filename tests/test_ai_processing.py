@@ -29,3 +29,14 @@ def test_build_prompt_empty_text():
 def test_build_prompt_invalid_feature():
     with pytest.raises(HTTPException):
         build_prompt(sample_text, "invalid_feature")  # type: ignore
+# Test prompt contains constraints
+def test_prompt_contains_constraints():
+    prompt = process_with_ai(
+        text="Hello world",
+        feature="summarize"
+    )
+
+    assert "NON-NEGOTIABLE RULES" in prompt
+    assert "DOCUMENT CONTENT:" in prompt
+    assert "Hello world" in prompt
+

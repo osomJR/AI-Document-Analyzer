@@ -22,7 +22,7 @@ def test_openapi_schema():
 
 def test_process_route_registered():
     response = client.post(
-        "/api/process",
+        "/api/v1/process",
         json={
             "text": "Test",
             "feature": "summarize"
