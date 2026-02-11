@@ -1,5 +1,3 @@
-# src/api.py
-
 from fastapi import FastAPI
 from backend.route import router as ai_router
 

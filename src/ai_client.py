@@ -1,5 +1,3 @@
-# src/ai_client.py
-
 from fastapi import HTTPException
 from openai import OpenAI
 
