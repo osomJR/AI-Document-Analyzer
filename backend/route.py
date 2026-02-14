@@ -1,54 +1,66 @@
-from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel
-from typing import Literal
-
+from fastapi import APIRouter, HTTPException, Depends
+from pydantic import BaseModel, field_validator
+from backend.rate_limit import rate_limit_ai
 from src.ai_processing import process_with_ai, FeatureType
 from src.ai_client import AIClient
+from src.ai_validation import validate_text_input  # <-- import here
 
 router = APIRouter()
 ai_client = AIClient()
 
 # Request / Response Schemas
-
 class AIProcessRequest(BaseModel):
     text: str
     feature: FeatureType
 
+    @field_validator("text")
+    @classmethod
+    def strip_text(cls, v: str) -> str:
+        return v.strip()
+
 class AIProcessResponse(BaseModel):
     result: str
 
-
-@router.post("/process", response_model=AIProcessResponse)
+@router.post(
+    "/process",
+    response_model=AIProcessResponse
+)
 def process_document(request: AIProcessRequest):
 
-    # REQUIRED for test_process_empty_text
-    if not request.text.strip():
-        raise HTTPException(
-            status_code=400,
-            detail="Empty content"
-        )
+    # Step 0: validate & sanitize input using ai_validation.py
+    text = validate_text_input(request.text)
 
     try:
+        # Step 1: build prompt
         prompt = process_with_ai(
-            text=request.text,
+            text=text,
             feature=request.feature
         )
 
+        # Step 2: execute AI call
         output = ai_client.generate(prompt)
 
         return AIProcessResponse(result=output)
 
     except HTTPException:
+        # Preserve rate limit and other explicit HTTP errors
         raise
 
     except ValueError as e:
         raise HTTPException(
             status_code=400,
-            detail=str(e)
+            detail={
+                "error": "invalid_request",
+                "message": str(e)
+            }
         )
 
-    except Exception as e:
+    except Exception:
+        # Do not leak internal error details
         raise HTTPException(
             status_code=500,
-            detail=f"Unexpected processing error: {str(e)}"
+            detail={
+                "error": "internal_error",
+                "message": "Unexpected processing error."
+            }
         )

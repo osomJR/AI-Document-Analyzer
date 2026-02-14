@@ -41,7 +41,7 @@ def test_process_empty_text():
     )
 
     assert response.status_code == 400
-    assert "Empty content" in response.text
+    assert "Input text cannot be empty." in response.text
 
 def test_process_invalid_feature():
     response = client.post(
