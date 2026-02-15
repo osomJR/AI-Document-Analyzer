@@ -1,44 +1,138 @@
-from pydantic import BaseModel, Field
-from typing import Optional, Literal
+from pydantic import BaseModel, Field, validator
+from typing import List, Literal, Optional, Annotated
+
+# CONSTANTS (HARD LIMITS — NON-CONFIGURABLE)
+
+MAX_WORDS = 1000
+MAX_FILE_SIZE_MB = 10
+
+# ENUMS
+
+FeatureType = Literal[
+    "convert",
+    "summarize",
+    "grammar",
+    "translate",
+    "explain",
+    "generate_questions",
+    "generate_answers",
+]
+
+InputFormat = Literal["pdf", "docx", "txt", "jpg", "jpeg"]
+OutputFormat = Literal["pdf", "docx", "txt"]
 
 # INPUT SCHEMAS
 
 class TextInput(BaseModel):
     """
-    Schema for copy-paste text input.
+    Copy-paste text input.
+    Used for all features except file-based OCR.
     """
-    feature: Literal['summarize', 'grammar', 'translate', 'explain', 'convert'] = Field(
-        ..., description="AI feature to apply to input")
-    text: str = Field(..., description="Copy-paste text input, max 1000 words")
-    output_format: Optional[Literal['pdf', 'docx', 'txt']] = Field(
-        'txt', description="Desired output format (for conversion or AI services)")
+
+    feature: FeatureType = Field(..., description="Requested AI feature")
+    text: str = Field(..., description="Raw input text (max 1000 words)")
+    output_format: OutputFormat = Field(
+        "txt", description="Desired output format"
+    )
+
+    @validator("text")
+    def enforce_word_limit(cls, v: str):
+        if len(v.split()) > MAX_WORDS:
+            raise ValueError("Text exceeds 1000-word limit")
+        return v
 
 class FileInput(BaseModel):
     """
-    Schema for metadata of file uploads.
-    Actual file handled separately as UploadFile in FastAPI endpoint.
+    File metadata input.
+    Actual file is handled separately via UploadFile.
     """
-    feature: Literal['summarize', 'grammar', 'translate', 'explain', 'convert'] = Field(
-        ..., description="AI feature to apply to uploaded file")
-    output_format: Optional[Literal['pdf', 'docx', 'txt']] = Field(
-        'txt', description="Desired output format")
-    max_words: Optional[int] = Field(1000, description="Maximum allowed words after extraction")
-    max_file_size_mb: Optional[int] = Field(10, description="Maximum file size in MB")
+
+    feature: FeatureType = Field(..., description="Requested AI feature")
+    input_format: InputFormat = Field(..., description="Uploaded file format")
+    output_format: OutputFormat = Field(..., description="Desired output format")
+
+    file_size_mb: Annotated[int, Field(le=MAX_FILE_SIZE_MB)] = Field(
+    ..., description="Uploaded file size in MB (must be ≤ 10)"
+    )
+
+class QuestionGenerationInput(BaseModel):
+    """
+    Stateless request for question generation.
+    """
+
+    feature: Literal["generate_questions"] = Field(
+        ..., description="Question generation feature"
+    )
+    source_text: str = Field(..., description="Original document text")
+
+    @validator("source_text")
+    def enforce_word_limit(cls, v: str):
+        if len(v.split()) > MAX_WORDS:
+            raise ValueError("Text exceeds 1000-word limit")
+        return v
+
+class AnswerGenerationInput(BaseModel):
+    """
+    Stateless request for answer generation.
+    Frontend must resend original document + generated questions.
+    """
+
+    feature: Literal["generate_answers"] = Field(
+        ..., description="Answer generation feature"
+    )
+    source_text: str = Field(..., description="Original document text")
+    questions: List[str] = Field(
+        ..., description="Previously generated numbered questions"
+    )
+
+    @validator("source_text")
+    def enforce_word_limit(cls, v: str):
+        if len(v.split()) > MAX_WORDS:
+            raise ValueError("Text exceeds 1000-word limit")
+        return v
 
 # OUTPUT SCHEMAS
 
-class ProcessedTextOutput(BaseModel):
+class ConvertedDocumentOutput(BaseModel):
     """
-    Schema for AI-processed text output.
+    Output for conversion, summarization, grammar correction, and translation.
     """
-    filename: Optional[str] = Field(None, description="Original filename if uploaded")
-    words: int = Field(..., description="Word count of processed content")
-    content_preview: str = Field(..., description="Preview of first ~500 characters of processed content")
-    feature_applied: str = Field(..., description="AI feature applied")
-    output_format: str = Field(..., description="Format of the output returned")
+
+    output_format: OutputFormat = Field(..., description="Returned file format")
+    word_count: int = Field(..., description="Final word count")
+    content: str = Field(..., description="Full processed content")
+
+class ExplanationOutput(BaseModel):
+    """
+    Output for explanation feature.
+    """
+
+    explanation: str = Field(..., description="Clear explanation of document content")
+
+class QuestionOutput(BaseModel):
+    """
+    Deterministic question output.
+    """
+
+    classification: Literal["small", "medium", "large"] = Field(
+        ..., description="Document size classification"
+    )
+    questions: List[str] = Field(
+        ..., description="Numbered questions ordered by increasing difficulty"
+    )
+
+class AnswerOutput(BaseModel):
+    """
+    Deterministic answer output aligned with questions.
+    """
+
+    answers: List[str] = Field(
+        ..., description="Numbered answers aligned exactly with questions"
+    )
 
 class ErrorResponse(BaseModel):
     """
-    Standard error response schema
+    Standard error response.
     """
+
     detail: str = Field(..., description="Error message")
