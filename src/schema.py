@@ -1,6 +1,6 @@
 from enum import Enum
 from typing import List, Optional, Literal, Annotated
-from pydantic import BaseModel, Field, StringConstraints, validator
+from pydantic import BaseModel, Field, StringConstraints, field_validator
 
 # CONTRACT CONSTANTS (HARD LIMITS)
 
@@ -44,12 +44,13 @@ class UserTier(str, Enum):
 
 class DocumentMetadata(BaseModel):
     input_format: InputFormat
-    file_size_mb: float = Field(..., gt=0, le=MAX_FILE_SIZE_MB)
+    file_size_mb: float = Field(..., ge=0, le=MAX_FILE_SIZE_MB)
     extracted_word_count: int = Field(..., ge= MIN_WORD_COUNT, le=MAX_WORD_COUNT)
     ocr_used: bool
-    @validator("ocr_used")
-    def validate_ocr_usage(cls, v, values):
-        fmt = values.get("input_format")
+    @field_validator("ocr_used")
+    @classmethod
+    def validate_ocr_usage(cls, v, info):
+        fmt = info.data.get("input_format")
         if fmt in (InputFormat.jpg, InputFormat.jpeg) and not v:
             raise ValueError("OCR must be enabled for image inputs")
         if fmt not in (InputFormat.jpg, InputFormat.jpeg) and v:
@@ -93,7 +94,8 @@ class AnswerGenerationRequest(BaseModel):
     questions: List[Annotated[
         str,
         StringConstraints(strip_whitespace=True, min_length=1)]]
-    @validator("questions")
+    @field_validator("questions")
+    @classmethod
     def validate_numbered_questions(cls, v):
         if not v:
             raise ValueError("Questions list cannot be empty")
@@ -124,14 +126,20 @@ class QuestionScalingRule(BaseModel):
     max_words: int
     min_questions: int
     max_questions: int
-    @validator("max_words")
-    def validate_word_bounds(cls, v, values):
-        if v <= values["min_words"]:
+    
+    @field_validator("max_words")
+    @classmethod
+    def validate_word_bounds(cls, v, info):
+        min_words = info.data.get("min_words")
+        if min_words is not None and v <= min_words:
             raise ValueError("Invalid word range")
         return v
-    @validator("max_questions")
-    def validate_question_bounds(cls, v, values):
-        if v <= values["min_questions"]:
+    
+    @field_validator("max_questions")
+    @classmethod
+    def validate_question_bounds(cls, v, info):
+        min_questions = info.data.get("min_questions")
+        if min_questions is not None and v <= min_questions:
             raise ValueError("Invalid question range")
         return v
 
@@ -170,7 +178,8 @@ class NumberedListResponse(BaseModel):
     items: List[Annotated[
         str,
         StringConstraints(strip_whitespace=True, min_length=1)]]
-    @validator("items")
+    @field_validator("items")
+    @classmethod
     def validate_sequential_numbering(cls, v):
         if not v:
             raise ValueError("List cannot be empty")
