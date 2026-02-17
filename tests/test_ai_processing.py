@@ -1,42 +1,118 @@
 import pytest
 from fastapi import HTTPException
-from src.ai_processing import build_prompt, process_with_ai, FeatureType, BASE_CONSTRAINTS
+from src.schema import FeatureType
+from src.ai_processing import build_prompt, process_with_ai
 
-# Sample text for testing
-sample_text = "This is a test document."
+# BASIC SUCCESS CASES
 
-# Test that prompt is built correctly for each feature
-@pytest.mark.parametrize("feature", ["summarize", "grammar", "translate", "explain", "convert"])
-def test_build_prompt_contains_all_rules(feature: FeatureType):
-    prompt = build_prompt(sample_text, feature)
+def test_summarize_prompt_builds_successfully():
+    text = "This is a sample paragraph for testing summarization."
     
-    # 1. Contract rules (BASE_CONSTRAINTS) must be included
-    assert BASE_CONSTRAINTS.strip() in prompt, "BASE_CONSTRAINTS missing from prompt!"
-    
-    # 2. Document content must be included
-    assert sample_text in prompt, "Document content missing from prompt!"
-    
-    # 3. Feature-specific rules must be included
-    from src.ai_processing import FEATURE_RULES
-    assert FEATURE_RULES[feature].strip() in prompt, f"Feature rules for {feature} missing from prompt!"
-
-# Test empty content raises HTTPException
-def test_build_prompt_empty_text():
-    with pytest.raises(HTTPException):
-        build_prompt("", "summarize")
-
-# Test unsupported feature raises HTTPException
-def test_build_prompt_invalid_feature():
-    with pytest.raises(HTTPException):
-        build_prompt(sample_text, "invalid_feature")  # type: ignore
-# Test prompt contains constraints
-def test_prompt_contains_constraints():
-    prompt = process_with_ai(
-        text="Hello world",
-        feature="summarize"
+    prompt = build_prompt(
+        text=text,
+        feature=FeatureType.summarize
     )
+    assert "COMPRESSION-ONLY SUMMARIZATION" in prompt
+    assert text in prompt
 
-    assert "NON-NEGOTIABLE RULES" in prompt
-    assert "DOCUMENT CONTENT:" in prompt
-    assert "Hello world" in prompt
+def test_grammar_prompt_builds_successfully():
+    text = "This are bad grammar sentence."
+    
+    prompt = build_prompt(
+        text=text,
+        feature=FeatureType.grammar_correct
+    )
+    assert "GRAMMAR CORRECTION ONLY" in prompt
+    assert text in prompt
 
+def test_translate_requires_target_language():
+    text = "Bonjour tout le monde"
+    with pytest.raises(HTTPException) as exc:
+        build_prompt(
+            text=text,
+            feature=FeatureType.translate
+        )
+    assert exc.value.status_code == 400
+    assert "Target language required" in exc.value.detail
+
+def test_translate_with_target_language():
+    text = "Bonjour tout le monde"
+
+    prompt = build_prompt(
+        text=text,
+        feature=FeatureType.translate,
+        target_language="English"
+    )
+    assert "TARGET LANGUAGE:" in prompt
+    assert "English" in prompt
+
+# QUESTION GENERATION TESTS
+
+def test_generate_questions_requires_word_count():
+    text = "Short text."
+    with pytest.raises(HTTPException) as exc:
+        build_prompt(
+            text=text,
+            feature=FeatureType.generate_questions
+        )
+    assert exc.value.status_code == 400
+    assert "Word count required" in exc.value.detail
+
+def test_generate_questions_includes_scaling_rule():
+    text = "word " * 200  # 200 words → small scale (1–300)
+    prompt = build_prompt(
+        text=text,
+        feature=FeatureType.generate_questions,
+        word_count=200
+    )
+    assert "DETERMINISTIC SCALING RULE" in prompt
+    assert "Generate between" in prompt
+
+# ANSWER GENERATION TESTS
+
+def test_generate_answers_requires_questions():
+    text = "Some content."
+    with pytest.raises(HTTPException) as exc:
+        build_prompt(
+            text=text,
+            feature=FeatureType.generate_answers
+        )
+    assert exc.value.status_code == 400
+    assert "Questions required" in exc.value.detail
+
+def test_generate_answers_includes_questions():
+    text = "Some content."
+    questions = [
+        "1. What is the topic?",
+        "2. Why is it important?"
+    ]
+    prompt = build_prompt(
+        text=text,
+        feature=FeatureType.generate_answers,
+        questions=questions
+    )
+    assert "QUESTIONS TO ANSWER:" in prompt
+    assert questions[0] in prompt
+    assert questions[1] in prompt
+
+# EMPTY TEXT VALIDATION
+
+def test_empty_text_raises_error():
+    with pytest.raises(HTTPException) as exc:
+        build_prompt(
+            text="   ",
+            feature=FeatureType.summarize
+        )
+    assert exc.value.status_code == 400
+    assert "Empty content cannot be processed" in exc.value.detail
+
+# PROCESS ENTRY POINT
+
+def test_process_with_ai_returns_prompt():
+    text = "This is a valid test document."
+    result = process_with_ai(
+        text=text,
+        feature=FeatureType.summarize
+    )
+    assert isinstance(result, str)
+    assert text in result
