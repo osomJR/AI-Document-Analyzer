@@ -192,4 +192,4 @@ class NumberedListResponse(BaseModel):
 
 class UsageSnapshot(BaseModel):
     user_tier: UserTier
-    actions_used_today: int = Field(..., ge=0, le=MAX_DAILY_ACTIONS_FREE)
+    actions_used_today: int = Field(..., ge=0)
