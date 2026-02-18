@@ -1,21 +1,20 @@
 from fastapi import HTTPException
 from openai import OpenAI
 import concurrent.futures
-
-# Configuration
-
-AI_MODEL ="gpt-4o-mini"
-AI_TIMEOUT_SECONDS =12       
-PROVIDER_TIMEOUT_SECONDS =25 
+from src.validation import (
+    validate_structured_text_response,
+)
+AI_MODEL = "gpt-4o-mini"
+MAX_COMPLETION_TOKENS = 1200
+AI_TIMEOUT_SECONDS = 12
+PROVIDER_TIMEOUT_SECONDS = 25
 
 # OpenAI client with provider-level timeout
+
 client = OpenAI(timeout=PROVIDER_TIMEOUT_SECONDS)
-
-
 class AIClient:
     """
     Low-level AI execution layer.
-
     Responsibilities:
     - Send prompts to the AI model
     - Return raw model output
@@ -28,18 +27,30 @@ class AIClient:
     """
 
     def generate(self, prompt: str) -> str:
-        if not prompt.strip():
+        if not prompt or not prompt.strip():
             raise HTTPException(
                 status_code=500,
                 detail="Empty prompt passed to AI client"
             )
 
-        # Execute provider call in controlled thread
+        # Controlled execution thread (timeout isolation)
         with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
             future = executor.submit(self._call_provider, prompt)
 
             try:
-                return future.result(timeout=AI_TIMEOUT_SECONDS)
+                result = future.result(timeout=AI_TIMEOUT_SECONDS)
+
+                if not result or not result.strip():
+                    raise HTTPException(
+                        status_code=502,
+                        detail="AI returned empty response"
+                    )
+
+                # Deterministic response-level safety check
+                # (Structure validation happens upstream depending on feature)
+                validate_structured_text_response(result)
+
+                return result
 
             except concurrent.futures.TimeoutError:
                 raise HTTPException(
@@ -62,7 +73,7 @@ class AIClient:
     def _call_provider(self, prompt: str) -> str:
         """
         Isolated provider call.
-        This keeps timeout logic clean and testable.
+        Keeps timeout logic clean and testable.
         """
 
         response = client.chat.completions.create(
@@ -77,8 +88,15 @@ class AIClient:
                     "content": prompt
                 }
             ],
-            temperature=0.0,
-            max_tokens=1000,
-            request_timeout_seconds=30
+            temperature=0.0,  # Deterministic output
+            max_tokens=MAX_COMPLETION_TOKENS,
         )
-        return response.choices[0].message.content.strip()
+
+        content = response.choices[0].message.content
+
+        if content is None:
+            raise HTTPException(
+                status_code=502,
+                detail="AI provider returned null content"
+            )
+        return content.strip()
