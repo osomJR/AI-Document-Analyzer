@@ -74,14 +74,17 @@ def test_image_ocr_extraction(tmp_path):
     payload: DocumentPayload = build_document_payload(file_path)
 
     # Validate OCR pipeline executed
+    
     assert payload.metadata.input_format in (InputFormat.jpg, InputFormat.jpeg)
     assert payload.metadata.ocr_used is True
 
     # Validate text was extracted
+    
     assert payload.text is not None
     assert payload.text.strip() != ""
 
     # Validate word count logic works
+    
     assert payload.metadata.extracted_word_count >= 1
 
 # WORD COUNT VALIDATION

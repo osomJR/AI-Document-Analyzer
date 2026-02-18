@@ -17,7 +17,6 @@ class InputFormat(str, Enum):
     txt = "txt"
     jpg = "jpg"
     jpeg = "jpeg"
-
 class OutputFormat(str, Enum):
     pdf = "pdf"
     docx = "docx"
@@ -70,25 +69,19 @@ class DocumentPayload(BaseModel):
 class ConversionRequest(BaseModel):
     feature: Literal[FeatureType.convert]
     output_format: OutputFormat
-
 class SummarizationRequest(BaseModel):
     feature: Literal[FeatureType.summarize]
-
 class GrammarCorrectionRequest(BaseModel):
     feature: Literal[FeatureType.grammar_correct]
-
 class TranslationRequest(BaseModel):
     feature: Literal[FeatureType.translate]
     target_language: Annotated[
     str,
     StringConstraints(strip_whitespace=True, min_length=1)]
-
 class ExplanationRequest(BaseModel):
     feature: Literal[FeatureType.explain]
-
 class QuestionGenerationRequest(BaseModel):
     feature: Literal[FeatureType.generate_questions]
-
 class AnswerGenerationRequest(BaseModel):
     feature: Literal[FeatureType.generate_answers]
     questions: List[Annotated[
@@ -119,14 +112,12 @@ class QuestionScale(str, Enum):
     small = "small"
     medium = "medium"
     large = "large"
-
 class QuestionScalingRule(BaseModel):
     classification: QuestionScale
     min_words: int
     max_words: int
     min_questions: int
     max_questions: int
-    
     @field_validator("max_words")
     @classmethod
     def validate_word_bounds(cls, v, info):
@@ -134,7 +125,6 @@ class QuestionScalingRule(BaseModel):
         if min_words is not None and v <= min_words:
             raise ValueError("Invalid word range")
         return v
-    
     @field_validator("max_questions")
     @classmethod
     def validate_question_bounds(cls, v, info):
@@ -142,7 +132,6 @@ class QuestionScalingRule(BaseModel):
         if min_questions is not None and v <= min_questions:
             raise ValueError("Invalid question range")
         return v
-
 QUESTION_SCALING_RULES = [
     QuestionScalingRule(
         classification=QuestionScale.small,
@@ -173,7 +162,6 @@ class StructuredTextResponse(BaseModel):
     content: Annotated[
     str,
     StringConstraints(strip_whitespace=True, min_length=1)]
-
 class NumberedListResponse(BaseModel):
     items: List[Annotated[
         str,
