@@ -5,6 +5,7 @@ from src.schema import FeatureType
 """
 AI RATE LIMITING—v1
 """
+
 # Base limits (per IP)
 
 AI_RATE_LIMIT = 3
@@ -21,7 +22,6 @@ _requests: dict[str, list[float]] = {}
 # Concurrency safety (important due to ThreadPoolExecutor usage)
 
 _lock = Lock()
-
 def _is_heavy_feature(feature: FeatureType) -> bool:
     """
     Heavier AI features consume more tokens / compute.
@@ -35,7 +35,6 @@ def _is_heavy_feature(feature: FeatureType) -> bool:
 def rate_limit_ai(request: Request, feature: FeatureType) -> None:
     """
     AI-specific rate limiter.
-
     - IP-based
     - Feature-aware
     - Deterministic window enforcement
@@ -48,6 +47,7 @@ def rate_limit_ai(request: Request, feature: FeatureType) -> None:
         window = _requests.get(ip, [])
 
         # Remove expired timestamps
+        
         window = [t for t in window if now - t < AI_WINDOW_SECONDS]
         if len(window) >= limit:
             retry_after = int(AI_WINDOW_SECONDS - (now - window[0]))
@@ -62,5 +62,6 @@ def rate_limit_ai(request: Request, feature: FeatureType) -> None:
             )
 
         # Append this request timestamp
+        
         window.append(now)
         _requests[ip] = window
